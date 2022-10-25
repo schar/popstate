@@ -12,7 +12,6 @@ library
   exposed-modules:
       Data.Indexed
       Data.PopLens
-      Data.Reader
       Data.Scope
       Data.State
       Fragments.XOver
