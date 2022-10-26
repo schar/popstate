@@ -28,3 +28,6 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - popstate
+    when:
+    - condition: false
+      other-modules: Paths_popstate

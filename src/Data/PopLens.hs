@@ -31,7 +31,7 @@ lr n (y, s) = (y, ) <$> n s
 get :: Lens s t a b -> s -> a
 get n s = a
   where
-    IStore a ct = n s
+    IStore a _ = n s
 
 modify :: Lens s t a b -> (a -> b) -> s -> t
 modify n f s = bt (f a)
@@ -62,20 +62,14 @@ pro'' :: Lens s t (a, u) u -> State s t a
 pro'' n s = modify n snd <$> pro' n s
 -- pro'' (ll (lr lz)) :: State ((y1, (a, u)), y2) ((y1, u), y2) a
 
+l0 :: Lens a b a b
 l0 = lz
+
+l1 :: Lens (x, a) (x, b) a b
 l1 = lr lz
+
+l2 :: Lens (x, (y, a)) (x, (y, b)) a b
 l2 = lr l1
+
+l3 :: Lens (x, (y, (z, a))) (x, (y, (z, b))) a b
 l3 = lr l2
-
-rp0 = pro lz
-rp1 = pro l1
-rp2 = pro l2
-rp3 = pro l3
-
-sp0 = pro'' lz
-sp1 = pro'' l1
-sp2 = pro'' l2
-sp3 = pro'' l3
-
-
-

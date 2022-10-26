@@ -1,4 +1,9 @@
-module Data.Indexed where
+module Data.Indexed
+  ( IxFunctor(..)
+  , IxApplicative(..)
+  , η
+  , (<<$>>)
+  ) where
 
 -- Parameterized/Indexed/Hoare classes
 -- =======================================
@@ -20,28 +25,8 @@ class IxFunctor m => IxApplicative m where
   (<\>) :: m i j a -> m j k (a -> b) -> m i k b
   mx <\> mf = imap (\x k -> k x) mx </> mf
 
-
-class IxApplicative m => IxMonad m where
-  -- create a pure update from a value
-  ireturn :: a -> m i i a
-  ireturn = ipure
-
-  -- scope an update over a continuation
-  (>>>=) :: m i j a -> (a -> m j k b) -> m i k b
-  (>>>) :: m i j a -> m j k b -> m i k b
-  x >>> y = x >>>= const y
-
-  ijoin :: m i j (m j k b) -> m i k b
-  ijoin m = m >>>= id
-
-infixl 1 >>>=
-
 -- Some synonyms
 --
-
-(★) :: IxMonad m => m i j a -> (a -> m j k b) -> m i k b
-(★) = (>>>=)
-
 η :: IxApplicative m => a -> m i i a
 η = ipure
 

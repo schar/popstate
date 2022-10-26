@@ -1,6 +1,11 @@
-module Fragments.XOver where
+{-# LANGUAGE QualifiedDo #-}
+
+module Fragments.XOver
+  ( module Fragments.XOver
+  ) where
 
 import Data.Foldable (for_)
+import qualified Data.IMonad as M
 import Data.Indexed
 import Data.List.Extra (groupSort, intercalate, intersperse)
 import Data.Scope
@@ -68,7 +73,7 @@ any xs =
 -- Scope IxApplicative, minimally </> and <\> (or </> and non-Scope LIFT). As
 -- always, Scope's `η` is recoverable as `up . η`.
 
--- State IxMonad, but `up` instead of `>>>=`. This entails that State effects
+-- State IxMonad, but `up` instead of `>>=`. This entails that State effects
 -- are exclusively propagated in Scope, which is assumed to have a L-R bias.
 -- Unfettered access to the full State monad allows crossover. (The State
 -- applicative operations alone do not, if also given a L-R bias, but they are
@@ -81,8 +86,10 @@ any xs =
 --       ^^   ^^^^   ^^^^
 --       DB indices  DB Gorn addresses
 --
+-- mpush and cpush are occasionally used in lieu of ipush for convenience
+--
 -- The popping action of lgets yields a dynamic analog of affine lambda calc,
--- and appears potentially related to Rule H/I.
+-- appears potentially related to Rule H/I.
 -- If we restrict to closed terms without active pushes -- State i i a -- we
 -- have a dynamic analog of linear lambda calculus.
 
@@ -91,15 +98,20 @@ down :: IxMonadState m => Scope r (m i (o, i) a) (m () o a) -> r
 down = downWith evalClosed
 
 evalClosed :: IxMonadState m => m () o a -> m i (o, i) a
-evalClosed m =
-  iget >>>= \i -> iput () >>> m >>>= \x -> iget >>>= \o -> iput (o, i) >>> η x
+evalClosed m = M.do
+  i <- iget
+  iput ()
+  x <- m
+  o <- iget
+  iput (o, i)
+  M.return x
 -- e.g. evalClosed (State m) ==> State $ \i -> [(a, (o, i)) | (a, o) <- m ()]
 
--- evalClosed m = m >>> iget >>>= \o -> iput () >>> m >>>= \x -> iput o >>> η x
+-- evalClosed m = m >> iget >>= \o -> iput () >> m >>= \x -> iput o >> η x
 -- this definition would not require gorn addresses, but it doesn't work in
 -- Haskell: the two occurrences of `m` are required to have the same
 -- monomorphic type. since `m` must be able to accept () as input state, `m`
--- is incorrectly restricted to programs that *only* accept () as input.
+-- is wrongly restricted to programs that *only* accept () as input.
 
 
 -- Demonstration examples, and crossover
@@ -111,7 +123,7 @@ jorb = disj ["john", "bill"]
 
 -- "John or Bill saw Spot"
 s1 :: State i (E, (E, i)) T
-s1 = jorb >>>= \x -> ipush x <\> η see </> ipush "spot"
+s1 = mpush jorb <\> η see </> ipush "spot"
 
 -- "He pet it"
 s2 :: State (E, (E, i)) i T
@@ -123,15 +135,19 @@ s3 = s1 <\> η conj </> s2
 
 -- "some^u farmer who owns a^v donkey"
 sfd'uv :: State i (E, (E, i)) E
-sfd'uv = isum $ map (\(f, d) -> ipush d >>> ipush f) own'
+sfd'uv = isum $ map (\(f, d) -> ipush d M.>> ipush f) own'
 
 -- "some^u donkey they_v own"
 sd'u_v :: State (a, (E, b)) (E, (a, b)) E
-sd'u_v = v1 >>>= \v -> isum [ipush d | (f, d) <- own', f == v]
+sd'u_v = M.do
+  v <- v1
+  isum [ipush d | (f, d) <- own', f == v]
 
 -- "some^u farmer who saw it_v"
 sf'u_v :: State (E, i) (E, i) E
-sf'u_v = v0 >>>= \v -> isum [ipush f | (f, d) <- see', d == v]
+sf'u_v = M.do
+  v <- v0
+  isum [ipush f | (f, d) <- see', d == v]
 
 dyn
   :: ([T] -> T)                   -- | the underlying determiner
@@ -141,11 +157,11 @@ dyn
   -> State i j E                  -- | the restrictor as indefinite
                                   --
   -> Scope (State i i T) (State j k T) E
-dyn det str p = Scope $ \c ->
-                  State $ \h -> [(det $ map (scope c) (restr h), h)]
- where
-  restr h = groupSort (runState p h)
-  scope c (x, bss) = str [ true (c x) bs | bs <- bss ]
+dyn det str p =
+  Scope $ \c -> State $ \h -> [(det $ map (scope c) (restr h), h)]
+  where
+    restr h = groupSort (runState p h)
+    scope c (x, bss) = str [true (c x) bs | bs <- bss]
 
 everyS, everyW :: State i j E -> Scope (State i i T) (State j k T) E
 everyS = dyn all all
@@ -183,7 +199,9 @@ s6 = down . (η <<$>>) <<$>> (vpis_v <<$>> everyS sfd'uv)
 
 -- IxMonadState ipush lifted to Scope, for potential convenience
 cpush :: IxMonadState m => Scope r (m i o b) a -> Scope r (m (a, i) o b) a
-cpush m = m >>>= \x -> up $ ipush x
+cpush m = M.do
+  x <- m
+  up $ ipush x
 
 -- "sold every donkey they own to Bill"
 vpb_u :: Scope
@@ -234,8 +252,8 @@ s10 = down $ down . (η <<$>>) <<$>> s
 -- Test
 -- =======================================
 
-main :: IO ()
-main = do
+test :: IO ()
+test = do
   putStrLn ""
   sequence_ $ intersperse
     (putStrLn "")
@@ -254,7 +272,7 @@ main = do
 
 ---}
 
-printUpdate :: (Show a, Show s2) => State s1 s2 a -> s1 -> IO ()
+printUpdate :: (Show a, Show o) => State i o a -> i -> IO ()
 printUpdate m s = do
   putStrLn "{"
   for_ (runState m s) $ \(x, s') -> putStrLn $ show x ++ ";  " ++ show s'

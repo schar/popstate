@@ -1,8 +1,6 @@
+module Main (main) where
 
-module Main where
-
-import qualified Fragments.XOver as X
-
+import Fragments.XOver
 
 main :: IO ()
-main = X.main
+main = test

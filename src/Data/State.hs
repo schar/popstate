@@ -1,66 +1,83 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE QualifiedDo #-}
+{-# LANGUAGE TupleSections #-}
 
 module Data.State
-  ( module Data.State ) where
+  ( module Data.State
+  ) where
 
+import qualified Data.IMonad as M
 import Data.Indexed
 import Data.PopLens
 
 -- Parameterized State
 -- =======================================
 
-class IxMonad m => IxMonadState m where
+class M.IxMonad m => IxMonadState m where
   iget :: m i i i
   iput :: j -> m i j ()
 
 imodify :: IxMonadState m => (i -> j) -> m i j ()
-imodify f = iget ★ \x -> iput $ f x
+imodify f = M.do
+  x <- iget
+  iput $ f x
 
-igets :: IxMonadState m => (i -> a) -> m i i a
-igets f = iget ★ \x -> ireturn $ f x
+-- igets :: IxMonadState m => (i -> a) -> m i i a
+-- igets f = M.do
+--   x <- iget
+--   M.return $ f x
 
 ipush :: IxMonadState m => a -> m i (a, i) a
-ipush x = imodify (\i -> (x, i)) >>> ireturn x
+ipush x = M.do
+  imodify (x, )
+  M.return x
+
+mpush :: IxMonadState m => m i j a -> m i (a, j) a
+mpush m = M.do
+  x <- m
+  ipush x
 
 lgets :: IxMonadState m => Lens s t (a, b) b -> m s t a
-lgets l =
-  iget >>>= \i ->
-    let (x, j) = pro'' l i
-     in iput j >>> ireturn x
+lgets l = M.do
+  i <- iget
+  let (x, j) = pro'' l i
+  iput j
+  M.return x
 
-newtype State s0 s1 a =
+newtype State i j a =
   State
-    { runState :: s0 -> [(a, s1)]
+    { runState :: i -> [(a, j)]
     }
 
 instance IxFunctor State where
-  imap f (State m) = State $ \s0 -> [(f x, s1) | (x, s1) <- m s0]
+  imap f m = ipure f </> m
 
 instance IxApplicative State where
-  ipure x = State $ \s0 -> [(x, s0)]
-  (State mf) </> (State mx) =
-    State $ \s0 -> [(f x, s2) | (f, s1) <- mf s0, (x, s2) <- mx s1]
+  ipure x = State $ \i -> [(x, i)]
+  mf </> mx = M.do
+    f <- mf
+    x <- mx
+    M.return $ f x
 
-instance IxMonad State where
-  ireturn x = State $ \s0 -> [(x, s0)]
-  (State m) >>>= k =
-    State $ \s0 -> [(b, s2) | (a, s1) <- m s0, (b, s2) <- runState (k a) s1]
+instance M.IxMonad State where
+  State m >>= f =
+    State $ \i -> [(b, k) | (a, j) <- m i, (b, k) <- runState (f a) j]
 
 instance IxMonadState State where
-  iget = State $ \i -> [(i, i)]
-  iput j = State $ \_ -> [((), j)]
+  iget   = State $ \i -> [(i , i)]
+  iput j = State $ const [((), j)]
 
-evalState :: State s0 s1 a -> s0 -> [a]
-evalState m s = map fst (runState m s)
+evalState :: State i j a -> i -> [a]
+evalState m i = map fst (runState m i)
 
-ilift :: [a] -> State s0 s0 a
-ilift xs = State $ \s -> [(x, s) | x <- xs]
+ilift :: [a] -> State i i a
+ilift xs = State $ \i -> [(x, i) | x <- xs]
 
-iplus :: State s0 s1 a -> State s0 s1 a -> State s0 s1 a
-m `iplus` n = State $ \s -> runState m s ++ runState n s
+iplus :: State i j a -> State i j a -> State i j a
+m `iplus` n = State $ \i -> runState m i ++ runState n i
 
-isum :: [State s0 s1 a] -> State s0 s1 a
+isum :: [State i j a] -> State i j a
 isum = foldr iplus (State $ const [])
 
 v0 :: State (a, i) i a
@@ -74,4 +91,3 @@ v2 = lgets l2
 
 v3 :: IxMonadState m => m (x, (y, (z, (a, b)))) (x, (y, (z, b))) a
 v3 = lgets l3
-
