@@ -80,7 +80,7 @@ any xs =
 -- recoverable from the compositional primitives. Some of the definitions
 -- below use State operations directly, for convenience.)
 
--- Vocabulary for generating, accessing drefs: ipush, lgets $ {lr, ll}^* lz
+-- Vocabulary for generating, accessing drefs: ipush, pro $ {lr, ll}^* lz
 --
 -- n ::= lz | lr n | ll n
 --       ^^   ^^^^   ^^^^
@@ -88,7 +88,7 @@ any xs =
 --
 -- mpush and cpush are occasionally used in lieu of ipush for convenience
 --
--- The popping action of lgets yields a dynamic analog of affine lambda calc,
+-- The popping action of pro yields a dynamic analog of affine lambda calc,
 -- appears potentially related to Rule H/I.
 -- If we restrict to closed terms without active pushes -- State i i a -- we
 -- have a dynamic analog of linear lambda calculus.
@@ -269,8 +269,6 @@ test = do
     , putStrLn "s10" >> printUpdate s10 ()
     ]
   putStrLn ""
-
----}
 
 printUpdate :: (Show a, Show o) => State i o a -> i -> IO ()
 printUpdate m s = do

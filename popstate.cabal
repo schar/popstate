@@ -15,6 +15,9 @@ library
       Data.PopLens
       Data.Scope
       Data.State
+      Fragments.Lexicon
+      Fragments.Static
+      Fragments.StaticScope
       Fragments.XOver
   other-modules:
       Paths_popstate

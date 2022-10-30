@@ -38,10 +38,10 @@ mpush m = M.do
   x <- m
   ipush x
 
-lgets :: IxMonadState m => Lens s t (a, b) b -> m s t a
-lgets l = M.do
+pro :: IxMonadState m => Lens s t (a, b) b -> m s t a
+pro l = M.do
   i <- iget
-  let (x, j) = pro'' l i
+  let (x, j) = dvar l i
   iput j
   M.return x
 
@@ -81,13 +81,13 @@ isum :: [State i j a] -> State i j a
 isum = foldr iplus (State $ const [])
 
 v0 :: State (a, i) i a
-v0 = lgets l0
+v0 = pro l0
 
 v1 :: IxMonadState m => m (x, (a, b)) (x, b) a
-v1 = lgets l1
+v1 = pro l1
 
 v2 :: IxMonadState m => m (x, (y, (a, b))) (x, (y, b)) a
-v2 = lgets l2
+v2 = pro l2
 
 v3 :: IxMonadState m => m (x, (y, (z, (a, b)))) (x, (y, (z, b))) a
-v3 = lgets l3
+v3 = pro l3
